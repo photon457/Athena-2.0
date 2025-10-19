@@ -23,14 +23,12 @@ Athena 2.0 is a modern, desktop AI chat application built with Java Swing, featu
 
 - **Message Bubbles**: Distinctive chat bubbles for user and AI messages
 - **Timestamps**: Automatic timestamping of all messages
-- **Auto-scroll**: Automatically scrolls to latest messages
 - **Input Validation**: Prevents sending empty messages
 
 ### Data Persistence
 
 - **MySQL Database**: Automatic database creation and table setup
 - **Chat History**: Saves all conversations to local MySQL database
-- **Data Retrieval**: Ability to fetch and display chat history
 
 ### Additional Features
 
