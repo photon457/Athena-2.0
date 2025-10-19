@@ -1,0 +1,23 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    implementation 'com.formdev:flatlaf:3.4'
+    implementation 'mysql:mysql-connector-java:8.0.33'
+}
+
+test {
+    enabled = false
+}
+
+application {
+    mainClass = 'org.example.App'   // your main class
+}
