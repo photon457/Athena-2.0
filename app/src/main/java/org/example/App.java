@@ -3,6 +3,7 @@ package org.example;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
+import javax.swing.text.html.HTMLEditorKit;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
@@ -21,6 +22,7 @@ public class App extends JFrame {
     private JLabel typingIndicator;
     private boolean isDarkMode = true;
     private JButton themeToggle;
+    private JComboBox<String> aiFlavorCombo;
     private final Color LIGHT_BG = new Color(245, 245, 220);
     private final Color DARK_BG = new Color(31, 31, 31);
     private final Color LIGHT_SECONDARY = new Color(245, 245, 220);
@@ -90,26 +92,50 @@ public class App extends JFrame {
 
     static class ChatBubble extends JPanel {
         private final GradientPaint gradient;
-        private final JLabel messageLabel;
+        private final JEditorPane messagePane;
         private final JLabel timestampLabel;
         private final boolean isUser;
         private final App parent;
+        private final String originalText;
 
         public ChatBubble(String text, boolean isUser, App parent) {
             this.isUser = isUser;
             this.parent = parent;
+            this.originalText = text;
             this.gradient = parent.isDarkMode
                     ? (isUser ? parent.USER_GRADIENT : parent.AI_GRADIENT)
                     : (isUser ? parent.USER_GRADIENT_LIGHT : parent.AI_GRADIENT_LIGHT);
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
             setOpaque(false);
 
-            // Message label with modern font
-            messageLabel = new JLabel("<html><p style=\"width: 220px; margin: 0;\">" + text + "</p></html>");
-            messageLabel.setForeground(parent.isDarkMode ? parent.DARK_TEXT : parent.LIGHT_TEXT);
-            messageLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-            messageLabel.setBorder(new EmptyBorder(12, 16, 6, 16));
-            messageLabel.setOpaque(false);
+            // Message pane with HTML support and copy functionality
+            messagePane = new JEditorPane();
+            messagePane.setContentType("text/html");
+            messagePane.setEditorKit(new HTMLEditorKit());
+            messagePane.setText("<html><body style='font-family: Segoe UI; font-size: 14px; color: " +
+                    (parent.isDarkMode ? "#FFFFFF" : "#000000")
+                    + "; width: 220px; margin: 0; padding: 12px 16px 6px 16px;'>" +
+                    text + "</body></html>");
+            messagePane.setEditable(false);
+            messagePane.setOpaque(false);
+            messagePane.setBorder(null);
+
+            // Add right-click context menu for copy
+            JPopupMenu popupMenu = new JPopupMenu();
+            JMenuItem copyItem = new JMenuItem("Copy");
+            copyItem.addActionListener(e -> {
+                String selectedText = messagePane.getSelectedText();
+                if (selectedText != null && !selectedText.isEmpty()) {
+                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(
+                            new java.awt.datatransfer.StringSelection(selectedText), null);
+                } else {
+                    // Copy entire message if nothing selected
+                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(
+                            new java.awt.datatransfer.StringSelection(originalText), null);
+                }
+            });
+            popupMenu.add(copyItem);
+            messagePane.setComponentPopupMenu(popupMenu);
 
             // Timestamp label
             String time = String.format("%tR", System.currentTimeMillis());
@@ -119,8 +145,19 @@ public class App extends JFrame {
             timestampLabel.setBorder(new EmptyBorder(0, 14, 5, 14));
             timestampLabel.setAlignmentX(isUser ? RIGHT_ALIGNMENT : LEFT_ALIGNMENT);
 
-            add(messageLabel);
+            add(messagePane);
             add(timestampLabel);
+        }
+
+        public void updateTheme(boolean isDarkMode) {
+            String color = isDarkMode ? "#FFFFFF" : "#000000";
+            messagePane.setText("<html><body style='font-family: Segoe UI; font-size: 14px; color: " + color +
+                    "; width: 220px; margin: 0; padding: 12px 16px 6px 16px;'>" +
+                    messagePane.getText()
+                            .replaceAll("<body[^>]*>",
+                                    "<body style='font-family: Segoe UI; font-size: 14px; color: " + color
+                                            + "; width: 220px; margin: 0; padding: 12px 16px 6px 16px;'>")
+                    + "</body></html>");
         }
 
         @Override
@@ -220,10 +257,23 @@ public class App extends JFrame {
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         add(scrollPane, BorderLayout.CENTER);
 
-        // Top panel with theme toggle
+        // Top panel with theme toggle and AI flavor selector
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         topPanel.setBackground(Color.BLACK);
         topPanel.setBorder(new EmptyBorder(5, 10, 5, 10));
+
+        // AI Flavor dropdown
+        String[] flavors = { "Normal", "Happy", "Sad", "Angry", "Sarcastic", "Professional" };
+        aiFlavorCombo = new JComboBox<>(flavors);
+        aiFlavorCombo.setSelectedItem("Normal");
+        aiFlavorCombo.setForeground(Color.WHITE);
+        aiFlavorCombo.setBackground(Color.BLACK);
+        aiFlavorCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        aiFlavorCombo.setToolTipText("Select AI Personality");
+        aiFlavorCombo.putClientProperty("JComponent.roundRect", true);
+        aiFlavorCombo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.WHITE, 1),
+                BorderFactory.createEmptyBorder(5, 10, 5, 10)));
 
         // Theme toggle button
         themeToggle = new ModernButton(isDarkMode ? "Light" : "Dark");
@@ -231,6 +281,7 @@ public class App extends JFrame {
         themeToggle.setToolTipText("Toggle Dark/Light Mode");
         themeToggle.setForeground(Color.WHITE);
 
+        topPanel.add(aiFlavorCombo);
         topPanel.add(themeToggle);
 
         add(topPanel, BorderLayout.NORTH);
@@ -310,10 +361,12 @@ public class App extends JFrame {
                 addMessage(userText, true);
                 inputField.setText("");
 
+                String selectedFlavor = (String) aiFlavorCombo.getSelectedItem();
+                String flavorPrompt = getFlavorPrompt(selectedFlavor);
+
                 String promptToSend = userText;
                 if (conversationHistory.isEmpty()) {
-                    promptToSend = "You're a helpful AI assistant. Answer concisely."
-                            + userText;
+                    promptToSend = flavorPrompt + userText;
                 }
 
                 Map<String, Object> userMessage = new HashMap<>();
@@ -432,10 +485,16 @@ public class App extends JFrame {
             }
         });
 
-        // Update all message panels
+        // Update all message panels and chat bubbles
         for (Component c : chatPanel.getComponents()) {
             if (c instanceof JPanel) {
                 c.setBackground(isDarkMode ? DARK_BG : LIGHT_BG);
+                for (Component inner : ((JPanel) c).getComponents()) {
+                    if (inner instanceof ChatBubble) {
+                        ChatBubble bubble = (ChatBubble) inner;
+                        bubble.updateTheme(isDarkMode);
+                    }
+                }
             }
         }
 
@@ -449,6 +508,23 @@ public class App extends JFrame {
             repaint();
             revalidate();
         });
+    }
+
+    private String getFlavorPrompt(String flavor) {
+        switch (flavor) {
+            case "Happy":
+                return "You're a cheerful and optimistic AI assistant. Always respond with enthusiasm and positivity. Answer concisely. ";
+            case "Sad":
+                return "You're a melancholic AI assistant. Respond with a somber, reflective tone. Answer concisely. ";
+            case "Angry":
+                return "You're a frustrated AI assistant. Respond with irritation and strong opinions. Answer concisely. ";
+            case "Sarcastic":
+                return "You're a witty and sarcastic AI assistant. Use irony and clever remarks. Answer concisely. ";
+            case "Professional":
+                return "You're a formal and professional AI assistant. Respond with expertise and precision. Answer concisely. ";
+            default:
+                return "You're a helpful AI assistant. Answer concisely. ";
+        }
     }
 
     public static void main(String[] args) {
