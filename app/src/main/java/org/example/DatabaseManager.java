@@ -7,9 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 public class DatabaseManager {
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/athena";
-    private static final String DB_USER = "root"; // Change this to your MySQL username
-    private static final String DB_PASSWORD = "root"; // Change this to your MySQL password
+    private static final String DB_URL = "jdbc:sqlite:athena.db";
     private static final String TABLE_NAME = "chat_history";
 
     private Connection connection;
@@ -20,37 +18,22 @@ public class DatabaseManager {
 
     private void initializeDatabase() {
         try {
-            // First try to connect to the specific database
-            connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+            connection = DriverManager.getConnection(DB_URL);
             createTableIfNotExists();
         } catch (SQLException e) {
-            // If database doesn't exist, try to create it
-            try {
-                String baseUrl = "jdbc:mysql://localhost:3306/";
-                Connection tempConnection = DriverManager.getConnection(baseUrl, DB_USER, DB_PASSWORD);
-                Statement stmt = tempConnection.createStatement();
-                stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS athena");
-                tempConnection.close();
-
-                // Now connect to the created database
-                connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-                createTableIfNotExists();
-            } catch (SQLException ex) {
-                System.err.println("Failed to connect to MySQL server. Make sure MySQL server is running.");
-                ex.printStackTrace();
-            }
+            System.err.println("Failed to connect to SQLite database.");
+            e.printStackTrace();
         }
     }
 
     private void createTableIfNotExists() {
-        String sql = "CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (" +
-                "id INT AUTO_INCREMENT PRIMARY KEY," +
-                "user_message TEXT NOT NULL," +
-                "ai_response TEXT NOT NULL," +
-                "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                ");";
-
         try (Statement stmt = connection.createStatement()) {
+            String sql = "CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "user_message TEXT NOT NULL," +
+                    "ai_response TEXT NOT NULL," +
+                    "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP" +
+                    ");";
             stmt.execute(sql);
         } catch (SQLException e) {
             e.printStackTrace();

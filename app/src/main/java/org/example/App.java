@@ -3,6 +3,8 @@ package org.example;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import javax.swing.text.html.HTMLEditorKit;
 import java.awt.*;
 import java.awt.event.*;
@@ -22,6 +24,7 @@ public class App extends JFrame {
     private JLabel typingIndicator;
     private boolean isDarkMode = true;
     private JButton themeToggle;
+    private JButton historyButton;
     private JComboBox<String> aiFlavorCombo;
     private final Color LIGHT_BG = new Color(245, 245, 220);
     private final Color DARK_BG = new Color(31, 31, 31);
@@ -275,6 +278,12 @@ public class App extends JFrame {
                 BorderFactory.createLineBorder(Color.WHITE, 1),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)));
 
+        // History button
+        historyButton = new ModernButton("History");
+        historyButton.addActionListener(e -> showChatHistory());
+        historyButton.setToolTipText("View Chat History");
+        historyButton.setForeground(Color.WHITE);
+
         // Theme toggle button
         themeToggle = new ModernButton(isDarkMode ? "Light" : "Dark");
         themeToggle.addActionListener(e -> toggleTheme());
@@ -282,6 +291,7 @@ public class App extends JFrame {
         themeToggle.setForeground(Color.WHITE);
 
         topPanel.add(aiFlavorCombo);
+        topPanel.add(historyButton);
         topPanel.add(themeToggle);
 
         add(topPanel, BorderLayout.NORTH);
@@ -508,6 +518,78 @@ public class App extends JFrame {
             repaint();
             revalidate();
         });
+    }
+
+    private void showChatHistory() {
+        JDialog historyDialog = new JDialog(this, "Chat History", true);
+        historyDialog.setSize(800, 500);
+        historyDialog.setLocationRelativeTo(this);
+        historyDialog.setLayout(new BorderLayout());
+
+        // Create table model with columns
+        String[] columnNames = { "Timestamp", "User Message", "AI Response" };
+        DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make table read-only
+            }
+        };
+
+        JTable historyTable = new JTable(tableModel);
+        historyTable.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        historyTable.setRowHeight(25);
+        historyTable.setBackground(isDarkMode ? DARK_SECONDARY : LIGHT_SECONDARY);
+        historyTable.setForeground(isDarkMode ? DARK_TEXT : LIGHT_TEXT);
+        historyTable.setGridColor(isDarkMode ? new Color(100, 100, 100) : new Color(200, 200, 200));
+        historyTable.setSelectionBackground(isDarkMode ? new Color(70, 70, 70) : new Color(173, 216, 230));
+
+        // Style table header
+        JTableHeader header = historyTable.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        header.setBackground(isDarkMode ? DARK_BG : LIGHT_BG);
+        header.setForeground(isDarkMode ? DARK_TEXT : LIGHT_TEXT);
+
+        JScrollPane historyScrollPane = new JScrollPane(historyTable);
+        historyScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        historyScrollPane.setBorder(null);
+
+        // Method to populate table
+        Runnable populateTable = () -> {
+            tableModel.setRowCount(0); // Clear existing rows
+            java.util.List<java.util.Map<String, Object>> chatHistory = dbManager.getAllChatHistory();
+
+            for (Map<String, Object> chatPair : chatHistory) {
+                String timestamp = (String) chatPair.get("timestamp");
+                String userMessage = (String) chatPair.get("user_message");
+                String aiResponse = (String) chatPair.get("ai_response");
+
+                tableModel.addRow(new Object[] { timestamp, userMessage, aiResponse });
+            }
+        };
+
+        // Initial population
+        populateTable.run();
+
+        historyDialog.add(historyScrollPane, BorderLayout.CENTER);
+
+        JButton refreshButton = new JButton("Refresh");
+        refreshButton.addActionListener(e -> populateTable.run());
+        refreshButton.setBackground(isDarkMode ? DARK_SECONDARY : LIGHT_SECONDARY);
+        refreshButton.setForeground(isDarkMode ? DARK_TEXT : LIGHT_TEXT);
+
+        JButton closeButton = new JButton("Close");
+        closeButton.addActionListener(e -> historyDialog.dispose());
+        closeButton.setBackground(isDarkMode ? DARK_SECONDARY : LIGHT_SECONDARY);
+        closeButton.setForeground(isDarkMode ? DARK_TEXT : LIGHT_TEXT);
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setBackground(isDarkMode ? DARK_BG : LIGHT_BG);
+        buttonPanel.add(refreshButton);
+        buttonPanel.add(closeButton);
+
+        historyDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        historyDialog.setVisible(true);
     }
 
     private String getFlavorPrompt(String flavor) {

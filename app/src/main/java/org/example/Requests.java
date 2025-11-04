@@ -9,7 +9,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class Requests {
-    private static final String API_KEY = "AzQMO81fOLn1vnhltUla6YgtofomQZUe";
+    private static final String API_KEY = "PtrGpbGKTW31zcN0gAIZryperShW4Tmj";
     private static final String API_URL = "https://api.mistral.ai/v1/chat/completions";
 
     public String getAIMessage(List<Map<String, Object>> messages) {
@@ -21,7 +21,7 @@ public class Requests {
         ObjectMapper mapper = new ObjectMapper();
 
         Map<String, Object> body = new HashMap<>();
-        body.put("model", "mistral-large-latest"); // Or mistral-medium, mistral-large
+        body.put("model", "mistral-tiny-latest"); // Or mistral-medium, mistral-large
         body.put("messages", messages);
 
         String jsonBody;
